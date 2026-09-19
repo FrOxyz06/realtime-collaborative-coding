@@ -1,18 +1,16 @@
-# Real-Time Collaborative Coding Extension
+# Collaborative Coding Extension
 
-**Status: Planned — README only; source code pending.**
+**Planned — no implementation yet.**
 
-A planned VS Code collaboration tool centered on reviewable code-change proposals and scoped collaboration permissions.
+A VS Code extension where another person can propose edits and the file owner can review them before they are applied.
 
-## Current state
+## Ideas
 
-No implementation is included.
+- Accept or reject proposed changes.
+- Limit editing access to specific files or sections.
+- Give access for a limited time.
+- Show a diff before applying anything.
 
-There is no runnable application, installation command, benchmark result, or release in this repository yet.
+## First milestone
 
-## Planned milestones
-
-- [ ] Build a local proposal and accept/reject workflow.
-- [ ] Define temporary permissions for selected files or regions.
-- [ ] Add authenticated live collaboration.
-- [ ] Test concurrent edits, disconnects, and permission expiry.
+Build the proposal and review flow locally. After that, add live sessions and handle conflicting edits and disconnects.
