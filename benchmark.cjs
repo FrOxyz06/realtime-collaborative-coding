@@ -33,13 +33,27 @@ function runBenchmark(python, request, cwd) {
 
 function report(result) {
     if (result.error) return 'Benchmark failed: ' + result.error;
-    const lines = [result.passed ? 'All supplied cases matched.' : 'Behavior mismatch: do not accept.',
-        'Median runtime per case (ms). Small differences may be noise.', ''];
-    for (const item of result.cases) {
-        lines.push(`${item.passed ? 'PASS' : 'FAIL'} ${item.name}: ${item.beforeMs.toFixed(4)} -> ${item.afterMs.toFixed(4)}`);
+    const profile = result.mode === 'profile';
+    const lines = [profile ? 'Python function profile' : (result.passed ? 'All supplied cases matched.' : 'Behavior mismatch: do not accept.'),
+        'Timing excludes warm-up and diagnostic overhead. Small differences may be noise.', ''];
+    function details(label, metrics) {
+        if (!metrics) return;
+        lines.push(`${label}: median ${metrics.medianMs.toFixed(4)} ms; range ${metrics.minMs.toFixed(4)}–${metrics.maxMs.toFixed(4)} ms; peak traced allocations ${metrics.peakBytes} bytes`);
+        for (const hotspot of metrics.hotspots) {
+            lines.push(`  line ${hotspot.line}: ${hotspot.function}, ${hotspot.calls} calls, ${hotspot.selfMs.toFixed(3)} ms self / ${hotspot.cumulativeMs.toFixed(3)} ms cumulative`);
+        }
     }
-    lines.push('', 'Checks return values, argument mutation, stdout, and stderr for these cases only.',
-        'This is not proof of equivalence. External effects and memory use are not checked.');
+    for (const item of result.cases) {
+        lines.push(`\n${item.passed ? 'PASS' : 'FAIL'} ${item.name}`);
+        if (profile) details('Profile', item);
+        else {
+            lines.push(`Runtime: ${item.beforeMs.toFixed(4)} -> ${item.afterMs.toFixed(4)} ms (${item.timingNote || 'sample'})`);
+            if (item.speedup) lines.push(`Observed speed ratio: ${item.speedup.toFixed(2)}x (before / after)`);
+            details('Before', item.before); details('After', item.after);
+        }
+    }
+    lines.push('', 'Hotspots use cProfile; memory uses tracemalloc, not whole-process RSS.',
+        'Checks cover supplied inputs, not every behavior or external side effect.');
     return lines.join('\n');
 }
 

@@ -15,7 +15,7 @@ test('review -> benchmark -> accept, and stale/dirty/rejected proposals stay unc
     const configFile = path.join(root, 'benchmark.json');
     await fs.writeFile(filename, original);
     await fs.writeFile(proposalFile, JSON.stringify({ schemaVersion: 1, target: 'example.py', baseHash: hash(original), proposedText: proposed }));
-    await fs.writeFile(configFile, JSON.stringify({ schemaVersion: 1, function: 'f', cases: [{ args: [1] }] }));
+    await fs.writeFile(configFile, JSON.stringify({ schemaVersion: 1, mode: 'profile', function: 'f', cases: [{ args: [1] }] }));
     const commands = new Map();
     const errors = [];
     let choices = [], text = original, dirty = false, edits = 0, called = 0, provider;
@@ -39,7 +39,7 @@ test('review -> benchmark -> accept, and stale/dirty/rejected proposals stay unc
     Module._load = function (name, ...args) {
         if (name === 'vscode') return vscode;
         if (name === '../benchmark.cjs') return { report: () => 'report', runBenchmark: async (python, request) => {
-            called++; assert.equal(request.before, original); assert.equal(request.after, proposed); return result;
+            called++; assert.equal(request.mode, 'compare'); assert.equal(request.before, original); assert.equal(request.after, proposed); return result;
         } };
         return load.call(this, name, ...args);
     };

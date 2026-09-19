@@ -4,3 +4,6 @@ src/**
 *.test.cjs
 test_*.py
 tsconfig.json
+.vscode-test/**
+host-test.cjs
+run-editor-tests.cjs

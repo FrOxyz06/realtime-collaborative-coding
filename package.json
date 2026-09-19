@@ -1,8 +1,8 @@
 {
   "name": "realtime-collaborative-coding",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "displayName": "Collab Review",
-  "description": "Review Python change proposals with shared before/after benchmarks. File-based collaboration MVP.",
+  "description": "Scoped Python proposal sessions with expiring access, benchmark reports, and owner-controlled acceptance.",
   "publisher": "FrOxyz06",
   "engines": {
     "vscode": "^1.100.0"
@@ -12,7 +12,8 @@
   "devDependencies": {
     "@types/node": "^22.20.3",
     "@types/vscode": "^1.138.0",
-    "typescript": "^7.0.2"
+    "typescript": "^7.0.2",
+    "@vscode/test-electron": "^3.1.0"
   },
   "contributes": {
     "commands": [
@@ -35,6 +36,30 @@
       {
         "command": "collab.rejectProposal",
         "title": "Collab: Reject Proposal"
+      },
+      {
+        "command": "collab.hostSession",
+        "title": "Collab: Host Session"
+      },
+      {
+        "command": "collab.joinSession",
+        "title": "Collab: Join Session"
+      },
+      {
+        "command": "collab.sendSessionProposal",
+        "title": "Collab: Send Session Proposal"
+      },
+      {
+        "command": "collab.reviewSessionProposal",
+        "title": "Collab: Review Session Proposal"
+      },
+      {
+        "command": "collab.sessionStatus",
+        "title": "Collab: Session Status"
+      },
+      {
+        "command": "collab.endSession",
+        "title": "Collab: End Session"
       }
     ],
     "configuration": {
@@ -52,7 +77,8 @@
   "scripts": {
     "compile": "tsc",
     "test": "npm run compile && node --test *.test.cjs",
-    "test:python": "python -m unittest -v test_benchmark.py"
+    "test:python": "python -m unittest -v test_benchmark.py",
+    "test:editor": "npm run compile && node run-editor-tests.cjs"
   },
   "capabilities": {
     "untrustedWorkspaces": {

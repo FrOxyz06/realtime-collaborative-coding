@@ -78,6 +78,55 @@ class BenchmarkTests(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     benchmark.compare(request)
 
+    def test_profile_has_real_hotspots_and_memory(self):
+        request = self.request(before='def helper(x): return list(range(x))\ndef f(x): return len(helper(x))')
+        request.update(mode='profile', cases=[{'args': [1000], 'expected': 1000}])
+        request.pop('after')
+        result = benchmark.compare(request)
+        case = result['cases'][0]
+        self.assertTrue(result['passed'])
+        self.assertGreater(case['peakBytes'], 1000)
+        self.assertEqual(len(case['samplesMs']), 2)
+        self.assertTrue(any(h['function'] == 'helper' and h['line'] == 1 for h in case['hotspots']))
+        self.assertEqual(len(result['sourceHashes']['before']), 64)
+
+    def test_expected_exception_behavior(self):
+        source = 'def f(x): raise ValueError("bad input")'
+        request = self.request(source, source)
+        request['cases'] = [{'args': [0], 'expectedError': 'ValueError'}]
+        self.assertTrue(benchmark.compare(request)['passed'])
+        request['after'] = 'def f(x): return 0'
+        with self.assertRaisesRegex(ValueError, 'not raised'):
+            benchmark.compare(request)
+        request['after'] = 'def f(x): raise ValueError("different message")'
+        self.assertFalse(benchmark.compare(request)['passed'])
+
+    def test_kwargs_mutation(self):
+        request = self.request('def f(values): return len(values)', 'def f(values):\n values.sort()\n return len(values)')
+        request['cases'] = [{'kwargs': {'values': [2, 1]}}]
+        self.assertFalse(benchmark.compare(request)['passed'])
+
+    def test_failed_comparison_never_claims_speedup(self):
+        request = self.request(after='def f(x): return 0')
+        request['cases'] = [{'args': [2]}]
+        result = benchmark.compare(request)
+        self.assertFalse(result['passed'])
+        self.assertNotIn('speedup', result['cases'][0])
+
+    def test_deduplication_example_against_oracle(self):
+        import random
+        from pathlib import Path
+        before, after = {}, {}
+        base = Path(__file__).parent
+        exec((base / 'deduplicate.py').read_text(), before)
+        exec((base / 'deduplicate-fast.py').read_text(), after)
+        rng = random.Random(143)
+        for _ in range(500):
+            values = [rng.randint(-15, 15) for _ in range(rng.randint(0, 100))]
+            expected = list(dict.fromkeys(values))
+            self.assertEqual(before['unique'](values), expected)
+            self.assertEqual(after['unique'](values), expected)
+
 
 if __name__ == '__main__':
     unittest.main()
