@@ -1,0 +1,6 @@
+node_modules/**
+*.ts
+src/**
+*.test.cjs
+test_*.py
+tsconfig.json
