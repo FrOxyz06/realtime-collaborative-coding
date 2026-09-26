@@ -3,7 +3,9 @@ import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 const { hash, validate, targetPath, checkBase, canAccept } = require('../proposal.cjs');
 const { runBenchmark, report } = require('../benchmark.cjs');
-const { hostSession, sessionRequest } = require('../session.cjs');
+const { hostSession, sessionRequest, snapshotRequest } = require('../session.cjs');
+const { watchSnapshots } = require('../watch.cjs');
+const { verifyComparison, comparisonReport } = require('../comparison.cjs');
 
 type Proposal = { schemaVersion: number; target: string; baseHash: string; proposedText: string };
 type Review = { proposal: Proposal; root: string; target: string; result?: any; remoteId?: string };
@@ -15,12 +17,35 @@ export function activate(context: vscode.ExtensionContext) {
     let sequence = 0;
     let host: any;
     let hostRoot: string;
+    let hostTarget: string;
+    let liveSharing = false;
+    let publishTimer: ReturnType<typeof setTimeout> | undefined;
+    let stopWatching: (() => void) | undefined;
+    let lastComparison: any;
     let joined: { invite: string; session: any } | undefined;
-    context.subscriptions.push({ dispose: () => host?.close() });
+    context.subscriptions.push({ dispose: () => { clearTimeout(publishTimer); stopWatching?.(); host?.close(); } });
     const previews = new Map<string, string>();
+    const previewChanged = new vscode.EventEmitter<vscode.Uri>();
+    context.subscriptions.push(previewChanged);
     const output = vscode.window.createOutputChannel('Collab Benchmark');
     context.subscriptions.push(output, vscode.workspace.registerTextDocumentContentProvider('collab-preview', {
+        onDidChange: previewChanged.event,
         provideTextDocumentContent: uri => previews.get(uri.toString()) || ''
+    }));
+    context.subscriptions.push(vscode.workspace.onDidChangeTextDocument(event => {
+        if (!liveSharing || !host || event.document.uri.scheme !== 'file' || event.document.uri.fsPath !== hostTarget) return;
+        clearTimeout(publishTimer);
+        const session = host;
+        const source = event.document.getText();
+        publishTimer = setTimeout(() => {
+            if (!liveSharing || host !== session) return;
+            try { session.publish(source); }
+            catch (error) {
+                liveSharing = false;
+                try { session.setLive(false); } catch { /* expired */ }
+                vscode.window.showErrorMessage('Live sharing stopped: ' + String(error));
+            }
+        }, 250);
     }));
 
     function register(name: string, action: () => Promise<void>) {
@@ -83,23 +108,149 @@ export function activate(context: vscode.ExtensionContext) {
             { modal: true }, 'Share this file');
         if (answer !== 'Share this file') return;
         host?.close();
+        clearTimeout(publishTimer); liveSharing = false;
         host = await hostSession(target, source, { onProposal: () => {
             vscode.window.showInformationMessage('New proposal received. Run Collab: Review Session Proposal.');
         } });
         hostRoot = root;
+        hostTarget = doc.uri.fsPath;
         const copy = await vscode.window.showInformationMessage('Session started on loopback. Use an SSH tunnel for another computer.', 'Copy invite');
         if (copy === 'Copy invite') await vscode.env.clipboard.writeText(host.invite);
     });
+
+    register('startLiveSharing', async () => {
+        if (!host) throw new Error('Host a session first');
+        if (!vscode.workspace.isTrusted) throw new Error('Live sharing requires a trusted workspace');
+        const session = host;
+        const answer = await vscode.window.showWarningMessage(
+            'Share ongoing edits, including unsaved changes, to the one hosted file? Guests can watch and copy it until you pause or end the session.',
+            { modal: true }, 'Share live edits');
+        if (answer !== 'Share live edits') return;
+        const doc = await vscode.workspace.openTextDocument(vscode.Uri.file(hostTarget));
+        session.setLive(true);
+        try { session.publish(doc.getText()); } catch (error) { session.setLive(false); throw error; }
+        liveSharing = true;
+        vscode.window.showInformationMessage('Live sharing is ON for ' + session.snapshot().target + '. Use Collab: Pause Live Sharing to stop updates.');
+    });
+
+    register('pauseLiveSharing', async () => {
+        clearTimeout(publishTimer); liveSharing = false;
+        host?.setLive(false);
+        vscode.window.showInformationMessage('Live sharing paused. The last shared snapshot remains readable until the session ends.');
+    });
+
+    async function sharedSnapshot(connection: { invite: string; session: any }) {
+        const snapshot = await snapshotRequest(connection.invite);
+        if (snapshot.target !== connection.session.target) throw new Error('Shared file changed unexpectedly; rejoin the session');
+        return snapshot;
+    }
+
+    async function copyShared(connection: { invite: string; session: any }) {
+        const snapshot = await sharedSnapshot(connection);
+        if (joined !== connection) return;
+        const document = await vscode.workspace.openTextDocument({ content: snapshot.source, language: 'python' });
+        await vscode.window.showTextDocument(document);
+        vscode.window.showInformationMessage(`Independent copy of ${snapshot.target}, revision ${snapshot.revision}. Live updates never overwrite this copy.`);
+    }
 
     register('joinSession', async () => {
         const invite = await vscode.window.showInputBox({ title: 'Paste session invite', password: true,
             prompt: 'For another computer, create an SSH tunnel first. Invitations contain a secret token.' });
         if (!invite) return;
         const session = await sessionRequest(invite);
+        stopWatching?.(); stopWatching = undefined;
         joined = { invite, session };
-        const document = await vscode.workspace.openTextDocument({ content: session.source, language: 'python' });
-        await vscode.window.showTextDocument(document);
-        vscode.window.showInformationMessage('Edit this copy, then run Collab: Send Session Proposal. The owner reviews all changes.');
+        await copyShared(joined);
+        vscode.window.showInformationMessage('Use Collab: Watch Shared File to follow your friend, or edit your copy and Compare My Solution with Friend.');
+    });
+
+    register('copySharedFile', async () => {
+        if (!joined) throw new Error('Join a session first');
+        await copyShared(joined);
+    });
+
+    register('watchSharedFile', async () => {
+        if (!joined) throw new Error('Join a session first');
+        stopWatching?.();
+        const connection = joined;
+        const snapshot = await sharedSnapshot(connection);
+        const uri = vscode.Uri.parse(`collab-preview:/${++sequence}/friend-${path.basename(snapshot.target)}`);
+        const content = (s: any) => `# Friend revision ${s.revision} — ${s.live ? 'LIVE' : 'PAUSED'} — read-only\n` + s.source;
+        previews.set(uri.toString(), content(snapshot));
+        const doc = await vscode.workspace.openTextDocument(uri);
+        await vscode.languages.setTextDocumentLanguage(doc, 'python');
+        await vscode.window.showTextDocument(doc, { preview: false });
+        const stopPoll = watchSnapshots(connection.invite, (next: any) => {
+            if (joined !== connection) return;
+            if (next.target !== snapshot.target) throw new Error('Shared file changed unexpectedly');
+            const text = content(next);
+            if (previews.get(uri.toString()) !== text) {
+                previews.set(uri.toString(), text); previewChanged.fire(uri);
+            }
+        }, (error: Error) => {
+            if (joined !== connection) return;
+            previews.set(uri.toString(), '# WATCH STOPPED — last received snapshot below\n' + previews.get(uri.toString()));
+            previewChanged.fire(uri);
+            vscode.window.showErrorMessage('Shared-file watch stopped: ' + error.message + '. Rejoin or run Watch Shared File again.');
+        });
+        stopWatching = () => {
+            stopPoll();
+            const text = previews.get(uri.toString()) || '';
+            if (!text.startsWith('# WATCH STOPPED')) {
+                previews.set(uri.toString(), '# WATCH STOPPED — last received snapshot below\n' + text);
+                previewChanged.fire(uri);
+            }
+        };
+    });
+
+    register('compareWithFriend', async () => {
+        if (!joined) throw new Error('Join a session first');
+        if (!vscode.workspace.isTrusted) throw new Error('Benchmarking requires a trusted workspace');
+        const connection = joined;
+        lastComparison = undefined;
+        const doc = vscode.window.activeTextEditor?.document;
+        if (!doc || !['file', 'untitled'].includes(doc.uri.scheme) || doc.languageId !== 'python') {
+            throw new Error('Focus your own editable Python solution first');
+        }
+        const yours = doc.getText();
+        const friend = await sharedSnapshot(connection);
+        validate({ schemaVersion: 1, target: friend.target, baseHash: hash(yours), proposedText: yours });
+        const mineUri = vscode.Uri.parse(`collab-preview:/${++sequence}/your-snapshot.py`);
+        const friendUri = vscode.Uri.parse(`collab-preview:/${++sequence}/friend-snapshot.py`);
+        previews.set(mineUri.toString(), yours); previews.set(friendUri.toString(), friend.source);
+        await vscode.commands.executeCommand('vscode.diff', mineUri, friendUri, `Your solution vs Friend r${friend.revision} (snapshots)`);
+        const configFile = await pick('Choose shared benchmark cases for both solutions', 'json');
+        if (!configFile) return;
+        if ((await fs.stat(configFile.fsPath)).size > 1000000) throw new Error('Benchmark configuration is too large');
+        const config = JSON.parse(await fs.readFile(configFile.fsPath, 'utf8'));
+        const answer = await vscode.window.showWarningMessage(
+            'Run both reviewed snapshots on your computer with the same tests? Your friend’s code runs with your permissions, not in a sandbox.',
+            { modal: true }, 'Run trusted code');
+        if (answer !== 'Run trusted code') return;
+        const cwd = doc.uri.scheme === 'file' ? path.dirname(doc.uri.fsPath) : workspace();
+        running = true;
+        try {
+            const python = vscode.workspace.getConfiguration('collab').get<string>('pythonPath', 'python');
+            const result = await runBenchmark(python, { ...config, mode: 'compare', before: yours, after: friend.source }, cwd);
+            verifyComparison(result, yours, friend.source);
+            let changed = doc.getText() !== yours;
+            try { changed ||= (await sharedSnapshot(connection)).hash !== friend.hash; } catch { changed = true; }
+            lastComparison = { schemaVersion: 1, target: friend.target, revision: friend.revision,
+                yourHash: hash(yours), friendHash: friend.hash, sharedAt: friend.updatedAt,
+                changedDuringRun: changed, result };
+            output.clear(); output.appendLine(comparisonReport(lastComparison)); output.show();
+        } finally { running = false; }
+    });
+
+    register('exportComparison', async () => {
+        if (!lastComparison) throw new Error('Compare your solution with your friend first');
+        const destination = await vscode.window.showSaveDialog({
+            defaultUri: vscode.Uri.file(path.join(workspace(), 'collab-comparison.json')), filters: { JSON: ['json'] }
+        });
+        if (!destination) return;
+        if (!destination.fsPath.endsWith('.json')) throw new Error('Use a .json filename');
+        await fs.writeFile(destination.fsPath, JSON.stringify(lastComparison, null, 2) + '\n');
+        vscode.window.showInformationMessage('Comparison saved with exact source hashes. No invitation token or source text is included.');
     });
 
     register('sendSessionProposal', async () => {
@@ -135,6 +286,7 @@ export function activate(context: vscode.ExtensionContext) {
     });
 
     register('endSession', async () => {
+        clearTimeout(publishTimer); liveSharing = false; stopWatching?.(); stopWatching = undefined;
         host?.close(); host = undefined; joined = undefined;
         if (pending?.remoteId) pending = undefined;
         vscode.window.showInformationMessage('Session ended locally. Hosted invitations are revoked.');

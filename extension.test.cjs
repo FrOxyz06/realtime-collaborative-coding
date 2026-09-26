@@ -24,8 +24,10 @@ test('review -> benchmark -> accept, and stale/dirty/rejected proposals stay unc
     const doc = { uri: uri(filename), fileName: filename, getText: () => text, get isDirty() { return dirty; }, positionAt: n => n };
     const editor = { document: doc, edit: async callback => { callback({ replace: (range, replacement) => { text = replacement; dirty = true; edits++; } }); return true; } };
     const vscode = {
+        EventEmitter: class { event = () => ({ dispose() {} }); fire() {} dispose() {} },
         Uri: { file: uri, parse: value => ({ toString: () => value }) }, Range: class {},
         workspace: { isTrusted: true, workspaceFolders: [{ uri: uri(root) }],
+            onDidChangeTextDocument: () => ({ dispose() {} }),
             registerTextDocumentContentProvider: (scheme, value) => { provider = value; return { dispose() {} }; },
             openTextDocument: async () => doc, getConfiguration: () => ({ get: () => 'python' }) },
         window: { activeTextEditor: editor, createOutputChannel: () => ({ clear() {}, appendLine() {}, show() {}, dispose() {} }),

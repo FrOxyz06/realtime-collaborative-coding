@@ -1,8 +1,8 @@
 {
   "name": "realtime-collaborative-coding",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "displayName": "Collab Review",
-  "description": "Scoped Python proposal sessions with expiring access, benchmark reports, and owner-controlled acceptance.",
+  "description": "Watch shared Python edits, copy independent solutions, and compare correctness and performance in VS Code.",
   "publisher": "FrOxyz06",
   "engines": {
     "vscode": "^1.100.0"
@@ -60,6 +60,30 @@
       {
         "command": "collab.endSession",
         "title": "Collab: End Session"
+      },
+      {
+        "command": "collab.startLiveSharing",
+        "title": "Collab: Start Live Sharing"
+      },
+      {
+        "command": "collab.pauseLiveSharing",
+        "title": "Collab: Pause Live Sharing"
+      },
+      {
+        "command": "collab.watchSharedFile",
+        "title": "Collab: Watch Shared File"
+      },
+      {
+        "command": "collab.copySharedFile",
+        "title": "Collab: Copy Shared File"
+      },
+      {
+        "command": "collab.compareWithFriend",
+        "title": "Collab: Compare My Solution with Friend"
+      },
+      {
+        "command": "collab.exportComparison",
+        "title": "Collab: Export Comparison"
       }
     ],
     "configuration": {
