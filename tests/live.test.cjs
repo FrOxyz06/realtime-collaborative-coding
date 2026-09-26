@@ -1,8 +1,8 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { hostSession, sessionRequest, snapshotRequest, parseInvite } = require('./session.cjs');
-const { watchSnapshots } = require('./watch.cjs');
-const { hash } = require('./proposal.cjs');
+const { hostSession, sessionRequest, snapshotRequest, parseInvite } = require('../src/session.cjs');
+const { watchSnapshots } = require('../src/watch.cjs');
+const { hash } = require('../src/proposal.cjs');
 const source = 'def f(x): return x + 1\n';
 
 test('live snapshots are opt-in, versioned, and never replace the proposal baseline', async () => {

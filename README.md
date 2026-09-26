@@ -31,16 +31,16 @@ Run **Collab: Pause Live Sharing** to stop updates; the last shared snapshot rem
 
 Comparisons use immutable snapshots. If either side changes while the benchmark runs, the result says it refers to the earlier hashes. Nothing is automatically applied or saved. Both solutions run on the guest computer with the same interpreter, inputs and working directory; install any required dependencies there first. Use the same top-level function name on both sides. An untitled copy requires one local workspace folder.
 
-Start with `deduplicate.py`, `deduplicate-fast.py` and `deduplicate-benchmark.json`.
-See [the measured demo](docs/LIVE_COMPARISON.md) and [benchmark format](BENCHMARK.md).
+Start with `examples/deduplicate.py`, `examples/deduplicate-fast.py` and `examples/deduplicate-benchmark.json`.
+See [the measured demo](docs/LIVE_COMPARISON.md) and [benchmark format](docs/BENCHMARK.md).
 
 ## Owner-reviewed proposal demo
 
-1. Owner: open the saved `deduplicate.py`, run **Collab: Host Session**, confirm the file, and copy the invite.
+1. Owner: open the saved `examples/deduplicate.py`, run **Collab: Host Session**, confirm the file, and copy the invite.
 2. Guest: launch a second extension window, run **Collab: Join Session**, and paste the invite. An editable copy opens.
-3. Guest: replace that copy with the contents of `deduplicate-fast.py`, then run **Collab: Send Session Proposal**.
+3. Guest: replace that copy with the contents of `examples/deduplicate-fast.py`, then run **Collab: Send Session Proposal**.
 4. Owner: run **Collab: Review Session Proposal**. Inspect the read-only proposed side of the diff.
-5. Owner: run **Collab: Benchmark Proposal** and select `deduplicate-benchmark.json`. Review the code before approving execution.
+5. Owner: run **Collab: Benchmark Proposal** and select `examples/deduplicate-benchmark.json`. Review the code before approving execution.
 6. Owner: inspect correctness, runtime variation, hotspots, and Python allocation results. Run **Collab: Accept Proposal** or **Collab: Reject Proposal**.
 7. Guest: run **Collab: Session Status** to see the outcome. Owner: **Collab: End Session** revokes access.
 
@@ -64,7 +64,7 @@ Open the saved original, run **Collab: Create Proposal**, select a candidate fil
 
 ## Design
 
-`session.cjs` handles short-lived access, versioned snapshots and proposal status using Node's built-in HTTP server. `watch.cjs` serializes polling and stops late callbacks. `comparison.cjs` verifies source hashes and explains runtime/memory tradeoffs. `proposal.cjs` validates paths and hashes. `extension.ts` handles review and editor changes. `benchmark.py` and `benchmark.cjs` are shared with [Performance Analyzer](https://github.com/FrOxyz06/ai-code-performance-analyzer-vscode). Both accept the same [benchmark format](BENCHMARK.md); neither extension needs the other installed.
+`session.cjs` handles short-lived access, versioned snapshots and proposal status using Node's built-in HTTP server. `watch.cjs` serializes polling and stops late callbacks. `comparison.cjs` verifies source hashes and explains runtime/memory tradeoffs. `proposal.cjs` validates paths and hashes. `extension.ts` handles review and editor changes. `benchmark.py` and `benchmark.cjs` are shared with [Performance Analyzer](https://github.com/FrOxyz06/ai-code-performance-analyzer-vscode). Both accept the same [benchmark format](docs/BENCHMARK.md); neither extension needs the other installed.
 
 For accepting proposals, a changed original, dirty editor, failed behavior check, expired session, or path outside the workspace blocks acceptance. Live snapshots do not change the original proposal baseline; start a new session to accept proposals against a changed baseline. Standalone friend comparisons can compare the latest solutions without applying either. Each session permits at most 20 proposals. The owner reviews only one proposal at a time.
 
@@ -81,3 +81,14 @@ Tests exercise real HTTP clients, access expiry, wrong tokens, file scope, stale
 ## Limits
 
 One Python file per session; no merge handling, persistence, automatic reconnect, bidirectional editing, or live cursors. Snapshot watching is host-to-guest; switch roles in a new session to share the other direction. The benchmark runs trusted local code with your permissions; it is not a sandbox. Passing cases only support the inputs checked. External side effects are not compared. See the shared format for supported inputs and execution limits.
+
+## Project layout
+
+- `src/`: extension entry point, sharing/review modules, and Python benchmark engine.
+- `tests/`: Node, Python, and real VS Code workflow tests.
+- `examples/`: sample Python solutions and benchmark inputs.
+- `scripts/`: editor test launcher and reproducible benchmark demo (`npm run demo`).
+- `docs/`: benchmark format, measured demo, and recorded results.
+- `out/`: generated extension JavaScript; created by `npm run compile`.
+
+Runtime CommonJS modules and the Python engine stay in `src/` and are included in the extension package.

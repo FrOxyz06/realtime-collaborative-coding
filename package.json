@@ -100,9 +100,10 @@
   },
   "scripts": {
     "compile": "tsc",
-    "test": "npm run compile && node --test *.test.cjs",
-    "test:python": "python -m unittest -v test_benchmark.py",
-    "test:editor": "npm run compile && node run-editor-tests.cjs"
+    "test": "npm run compile && node --test tests/*.test.cjs",
+    "test:python": "python -m unittest discover -s tests -p test_*.py -v",
+    "test:editor": "npm run compile && node scripts/run-editor-tests.cjs",
+    "demo": "node scripts/benchmark-demo.cjs"
   },
   "capabilities": {
     "untrustedWorkspaces": {

@@ -1,9 +1,9 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
-const { hash } = require('./proposal.cjs');
-const { runtimeWinner, verifyComparison, comparisonReport } = require('./comparison.cjs');
-const { runBenchmark } = require('./benchmark.cjs');
+const { hash } = require('../src/proposal.cjs');
+const { runtimeWinner, verifyComparison, comparisonReport } = require('../src/comparison.cjs');
+const { runBenchmark } = require('../src/benchmark.cjs');
 
 const item = () => ({ passed: true, name: 'sample', timingNote: 'measurable', beforeMs: 2, afterMs: 1,
     before: { medianMs: 2, minMs: 1.9, maxMs: 2.1, peakBytes: 100 },
@@ -38,9 +38,9 @@ test('report labels the two solutions and exposes runtime/memory tradeoffs', () 
 });
 
 test('real Python solutions compare with source hashes and supplied correctness cases', async () => {
-    const yours = fs.readFileSync('deduplicate.py', 'utf8');
-    const friend = fs.readFileSync('deduplicate-fast.py', 'utf8');
-    const config = JSON.parse(fs.readFileSync('deduplicate-benchmark.json', 'utf8'));
+    const yours = fs.readFileSync(require('node:path').join(__dirname, '../examples/deduplicate.py'), 'utf8');
+    const friend = fs.readFileSync(require('node:path').join(__dirname, '../examples/deduplicate-fast.py'), 'utf8');
+    const config = JSON.parse(fs.readFileSync(require('node:path').join(__dirname, '../examples/deduplicate-benchmark.json'), 'utf8'));
     const result = await runBenchmark(process.env.TEST_PYTHON || 'python', { ...config, before: yours, after: friend }, process.cwd());
     verifyComparison(result, yours, friend);
     assert.equal(result.passed, true, result.error);

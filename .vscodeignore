@@ -1,9 +1,9 @@
 node_modules/**
-*.ts
-src/**
-*.test.cjs
-test_*.py
+src/**/*.ts
+tests/**
+scripts/**
 tsconfig.json
 .vscode-test/**
-host-test.cjs
-run-editor-tests.cjs
+**/__pycache__/**
+**/*.pyc
+.github/**

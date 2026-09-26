@@ -1,15 +1,15 @@
 // Offline two-client demonstration. No real invitation or source text is saved.
 const fs = require('node:fs/promises');
 const path = require('node:path');
-const { hostSession, snapshotRequest } = require('../session.cjs');
-const { runBenchmark } = require('../benchmark.cjs');
-const { hash } = require('../proposal.cjs');
-const { verifyComparison, comparisonReport } = require('../comparison.cjs');
+const { hostSession, snapshotRequest } = require('../src/session.cjs');
+const { runBenchmark } = require('../src/benchmark.cjs');
+const { hash } = require('../src/proposal.cjs');
+const { verifyComparison, comparisonReport } = require('../src/comparison.cjs');
 
 async function main() {
     const root = path.resolve(__dirname, '..');
-    const yours = await fs.readFile(path.join(root, 'deduplicate.py'), 'utf8');
-    const optimized = await fs.readFile(path.join(root, 'deduplicate-fast.py'), 'utf8');
+    const yours = await fs.readFile(path.join(root, 'examples', 'deduplicate.py'), 'utf8');
+    const optimized = await fs.readFile(path.join(root, 'examples', 'deduplicate-fast.py'), 'utf8');
     const host = await hostSession('deduplicate.py', yours);
     try {
         const independentCopy = await snapshotRequest(host.invite);

@@ -4,7 +4,7 @@ const fs = require('node:fs/promises');
 const os = require('node:os');
 const path = require('node:path');
 const Module = require('node:module');
-const { hash } = require('./proposal.cjs');
+const { hash } = require('../src/proposal.cjs');
 
 test('review -> benchmark -> accept, and stale/dirty/rejected proposals stay unchanged', async () => {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), 'collab-flow-'));
@@ -40,13 +40,13 @@ test('review -> benchmark -> accept, and stale/dirty/rejected proposals stay unc
     const load = Module._load;
     Module._load = function (name, ...args) {
         if (name === 'vscode') return vscode;
-        if (name === '../benchmark.cjs') return { report: () => 'report', runBenchmark: async (python, request) => {
+        if (name === '../src/benchmark.cjs') return { report: () => 'report', runBenchmark: async (python, request) => {
             called++; assert.equal(request.mode, 'compare'); assert.equal(request.before, original); assert.equal(request.after, proposed); return result;
         } };
         return load.call(this, name, ...args);
     };
     try {
-        require('./out/extension.js').activate({ subscriptions: [] });
+        require('../out/extension.js').activate({ subscriptions: [] });
         const run = name => commands.get('collab.' + name)();
         choices = [proposalFile]; await run('reviewProposal'); assert.equal(edits, 0);
         await run('acceptProposal'); assert.match(errors.pop(), /passing benchmark/);

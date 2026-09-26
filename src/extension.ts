@@ -1,11 +1,11 @@
 import * as vscode from 'vscode';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
-const { hash, validate, targetPath, checkBase, canAccept } = require('../proposal.cjs');
-const { runBenchmark, report } = require('../benchmark.cjs');
-const { hostSession, sessionRequest, snapshotRequest } = require('../session.cjs');
-const { watchSnapshots } = require('../watch.cjs');
-const { verifyComparison, comparisonReport } = require('../comparison.cjs');
+const { hash, validate, targetPath, checkBase, canAccept } = require('../src/proposal.cjs');
+const { runBenchmark, report } = require('../src/benchmark.cjs');
+const { hostSession, sessionRequest, snapshotRequest } = require('../src/session.cjs');
+const { watchSnapshots } = require('../src/watch.cjs');
+const { verifyComparison, comparisonReport } = require('../src/comparison.cjs');
 
 type Proposal = { schemaVersion: number; target: string; baseHash: string; proposedText: string };
 type Review = { proposal: Proposal; root: string; target: string; result?: any; remoteId?: string };

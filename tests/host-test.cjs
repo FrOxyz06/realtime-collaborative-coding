@@ -13,7 +13,7 @@ exports.run = async function () {
 };
 
 async function workflow() {
-    const manifest = require('./package.json');
+    const manifest = require('../package.json');
     const extension = vscode.extensions.all.find(item => item.packageJSON.name === manifest.name);
     assert.ok(extension, 'Extension not discovered');
     const root = vscode.workspace.workspaceFolders[0].uri.fsPath;
@@ -39,7 +39,7 @@ async function workflow() {
         const configKey = manifest.name === 'realtime-collaborative-coding' ? 'collab' : 'performanceAnalyzer';
         await vscode.workspace.getConfiguration(configKey).update('pythonPath', process.env.TEST_PYTHON, vscode.ConfigurationTarget.Global);
         if (configKey === 'collab') {
-            const { hash } = require('./proposal.cjs');
+            const { hash } = require('../src/proposal.cjs');
             const proposalFile = path.join(root, 'change.collab-proposal.json');
             await fs.writeFile(proposalFile, JSON.stringify({ schemaVersion: 1, target: 'example.py', baseHash: hash(original), proposedText: candidate }));
             dialogs.push(proposalFile);
@@ -65,9 +65,9 @@ async function workflow() {
                 await vscode.commands.executeCommand('collab.hostSession');
                 invite = await vscode.env.clipboard.readText();
                 assert.ok(invite, 'Host did not produce an invite: ' + errors.join('; '));
-                const { sessionRequest } = require('./session.cjs');
+                const { sessionRequest } = require('../src/session.cjs');
                 const guest = await sessionRequest(invite);
-                const { snapshotRequest } = require('./session.cjs');
+                const { snapshotRequest } = require('../src/session.cjs');
                 await vscode.commands.executeCommand('collab.startLiveSharing');
                 const ownerEditor = await vscode.window.showTextDocument(doc);
                 await ownerEditor.edit(edit => edit.insert(doc.positionAt(doc.getText().length), '\n# live edit\n'));
@@ -99,7 +99,7 @@ async function workflow() {
 
             // A separate real HTTP host plays the friend while this VS Code
             // instance exercises the guest commands against actual documents.
-            const { hostSession } = require('./session.cjs');
+            const { hostSession } = require('../src/session.cjs');
             const friend = await hostSession('example.py', original);
             try {
                 friend.setLive(true);
