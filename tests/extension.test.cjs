@@ -4,7 +4,7 @@ const fs = require('node:fs/promises');
 const os = require('node:os');
 const path = require('node:path');
 const Module = require('node:module');
-const { hash } = require('./proposal.cjs');
+const { hash } = require('../src/proposal.cjs');
 
 test('review -> benchmark -> accept, and stale/dirty/rejected proposals stay unchanged', async () => {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), 'collab-flow-'));
@@ -24,8 +24,10 @@ test('review -> benchmark -> accept, and stale/dirty/rejected proposals stay unc
     const doc = { uri: uri(filename), fileName: filename, getText: () => text, get isDirty() { return dirty; }, positionAt: n => n };
     const editor = { document: doc, edit: async callback => { callback({ replace: (range, replacement) => { text = replacement; dirty = true; edits++; } }); return true; } };
     const vscode = {
+        EventEmitter: class { event = () => ({ dispose() {} }); fire() {} dispose() {} },
         Uri: { file: uri, parse: value => ({ toString: () => value }) }, Range: class {},
         workspace: { isTrusted: true, workspaceFolders: [{ uri: uri(root) }],
+            onDidChangeTextDocument: () => ({ dispose() {} }),
             registerTextDocumentContentProvider: (scheme, value) => { provider = value; return { dispose() {} }; },
             openTextDocument: async () => doc, getConfiguration: () => ({ get: () => 'python' }) },
         window: { activeTextEditor: editor, createOutputChannel: () => ({ clear() {}, appendLine() {}, show() {}, dispose() {} }),
@@ -38,13 +40,13 @@ test('review -> benchmark -> accept, and stale/dirty/rejected proposals stay unc
     const load = Module._load;
     Module._load = function (name, ...args) {
         if (name === 'vscode') return vscode;
-        if (name === '../benchmark.cjs') return { report: () => 'report', runBenchmark: async (python, request) => {
+        if (name === '../src/benchmark.cjs') return { report: () => 'report', runBenchmark: async (python, request) => {
             called++; assert.equal(request.mode, 'compare'); assert.equal(request.before, original); assert.equal(request.after, proposed); return result;
         } };
         return load.call(this, name, ...args);
     };
     try {
-        require('./out/extension.js').activate({ subscriptions: [] });
+        require('../out/extension.js').activate({ subscriptions: [] });
         const run = name => commands.get('collab.' + name)();
         choices = [proposalFile]; await run('reviewProposal'); assert.equal(edits, 0);
         await run('acceptProposal'); assert.match(errors.pop(), /passing benchmark/);

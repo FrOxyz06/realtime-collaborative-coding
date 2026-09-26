@@ -9,6 +9,8 @@ async function hostSession(target, source, options = {}) {
     const token = crypto.randomBytes(32).toString('hex');
     const expiresAt = Date.now() + (options.ttlMs || 15 * 60 * 1000);
     const proposals = new Map();
+    let live = false;
+    let snapshot = { schemaVersion: 1, target, source, hash: baseHash, revision: 1, updatedAt: Date.now() };
     let closed = false;
     let timer;
     function active() {
@@ -34,7 +36,11 @@ async function hostSession(target, source, options = {}) {
         if (closed || Date.now() >= expiresAt) return send(410, { error: 'Session expired or ended' });
         if (req.method === 'GET' && req.url === '/session') {
             return send(200, { schemaVersion: 1, target, source, baseHash, expiresAt,
+                live, revision: snapshot.revision,
                 proposals: [...proposals.values()].map(({ id, status }) => ({ id, status })) });
+        }
+        if (req.method === 'GET' && req.url === '/snapshot') {
+            return send(200, { ...snapshot, live, expiresAt });
         }
         if (req.method !== 'POST' || req.url !== '/proposals') return send(404, { error: 'Unknown route' });
         if (!(req.headers['content-type'] || '').startsWith('application/json')) return send(415, { error: 'JSON required' });
@@ -71,6 +77,17 @@ async function hostSession(target, source, options = {}) {
     timer.unref();
     return {
         invite: `http://127.0.0.1:${server.address().port}/#${token}`, expiresAt,
+        setLive(enabled) { active(); live = Boolean(enabled); },
+        snapshot() { active(); return { ...snapshot, live, expiresAt }; },
+        publish(text) {
+            active();
+            if (!live) throw new Error('Live sharing is paused');
+            validate({ schemaVersion: 1, target, baseHash, proposedText: text });
+            const digest = hash(text);
+            if (digest !== snapshot.hash) snapshot = { ...snapshot, source: text, hash: digest,
+                revision: snapshot.revision + 1, updatedAt: Date.now() };
+            return this.snapshot();
+        },
         list() { active(); return [...proposals.values()].map(p => ({ ...p })); }, get,
         resolve(id, status) {
             if (!['applied', 'rejected'].includes(status)) throw new Error('Invalid outcome');
@@ -93,17 +110,48 @@ function parseInvite(invite) {
     return { base: url.origin, token: url.hash.slice(1) };
 }
 
-async function sessionRequest(invite, method = 'GET', proposal) {
+async function request(invite, route, method = 'GET', proposal) {
     const { base, token } = parseInvite(invite);
-    const response = await fetch(base + (method === 'GET' ? '/session' : '/proposals'), {
+    const response = await fetch(base + route, {
         method, redirect: 'error', signal: AbortSignal.timeout(10000),
         headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
         body: proposal === undefined ? undefined : JSON.stringify(proposal)
     });
-    const text = await response.text();
-    if (text.length > 500000) throw new Error('Session response too large');
+    const reader = response.body.getReader();
+    const chunks = [];
+    let size = 0;
+    try {
+        for (;;) {
+            const { value, done } = await reader.read();
+            if (done) break;
+            size += value.byteLength;
+            if (size > 1500000) throw new Error('Session response too large');
+            chunks.push(value);
+        }
+    } finally { await reader.cancel(); }
+    const text = Buffer.concat(chunks).toString('utf8');
     const result = JSON.parse(text);
     if (!response.ok) throw new Error(result.error || 'Session request failed');
     return result;
 }
-module.exports = { hostSession, parseInvite, sessionRequest };
+
+async function sessionRequest(invite, method = 'GET', proposal) {
+    if (!['GET', 'POST'].includes(method)) throw new Error('Unsupported session method');
+    const result = await request(invite, method === 'GET' ? '/session' : '/proposals', method, proposal);
+    if (method === 'GET') {
+        validate({ schemaVersion: result.schemaVersion, target: result.target, baseHash: result.baseHash, proposedText: result.source });
+        if (hash(result.source) !== result.baseHash || !Array.isArray(result.proposals)) throw new Error('Invalid session snapshot');
+    }
+    return result;
+}
+
+async function snapshotRequest(invite) {
+    const result = await request(invite, '/snapshot');
+    validate({ schemaVersion: result.schemaVersion, target: result.target, baseHash: result.hash, proposedText: result.source });
+    if (hash(result.source) !== result.hash || !Number.isSafeInteger(result.revision) || result.revision < 1 ||
+        typeof result.live !== 'boolean' || !Number.isFinite(result.updatedAt) || !Number.isFinite(result.expiresAt)) {
+        throw new Error('Invalid shared snapshot');
+    }
+    return result;
+}
+module.exports = { hostSession, parseInvite, sessionRequest, snapshotRequest };

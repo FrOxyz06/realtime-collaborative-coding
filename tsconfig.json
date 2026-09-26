@@ -2,7 +2,7 @@
   "compilerOptions": {
     "target": "ES2022",
     "module": "CommonJS",
-    "rootDir": ".",
+    "rootDir": "src",
     "outDir": "out",
     "strict": true,
     "esModuleInterop": true,
@@ -14,6 +14,6 @@
     "noEmitOnError": true
   },
   "include": [
-    "extension.ts"
+    "src/**/*.ts"
   ]
 }
