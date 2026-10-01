@@ -92,3 +92,10 @@ One Python file per session; no merge handling, persistence, automatic reconnect
 - `out/`: generated extension JavaScript; created by `npm run compile`.
 
 Runtime CommonJS modules and the Python engine stay in `src/` and are included in the extension package.
+
+
+## Maintenance
+
+GitHub Actions runs the Node, Python, and editor tests on pushes and pull requests. Dependabot checks npm dependencies and workflow actions weekly, grouping routine minor and patch updates. Review and test major upgrades separately.
+
+Use `npm ci` to install the committed lockfile. For dependency changes, update `package.json` and `package-lock.json` together and run all three test commands above.
