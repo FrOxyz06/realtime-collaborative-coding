@@ -2,11 +2,17 @@
 
 A VS Code extension for solving Python problems with a friend: watch their shared edits, take your own copy, and compare both solutions for correctness, runtime and memory. Owner-reviewed proposals remain available.
 
-v0.3.0 adds opt-in live snapshots over HTTP. Watching is read-only; each editable copy stays independent. This is not simultaneous editing or a merge engine. Both participants need v0.3.0 for the new snapshot commands.
+v0.4.0 beta adds an installable VSIX, a starter demo, a status-bar action menu, Python setup checks, and a feedback form. Watching is read-only; each editable copy stays independent. This is not simultaneous editing or a merge engine.
 
-## Run it
+## Try the beta
 
-Requires Node.js 22+, Python 3.10+, and VS Code 1.100+.
+Start with [the installation and trial guide](docs/TRY_IT.md). Download the VSIX from the `collab-review-beta` artifact on a successful [Tests workflow run](https://github.com/FrOxyz06/realtime-collaborative-coding/actions/workflows/test.yml) for the beta branch, install it in VS Code, and run **Collab: Open Menu** → **Try the starter demo**. You can try reviewing and comparing code without a partner or building from source. GitHub sign-in is required for artifact downloads.
+
+Installed users need VS Code 1.138+ and Python 3.10+ for comparisons. Two windows on one computer work directly. **Two different computers still require an existing SSH tunnel**; this beta has no hosted relay. Use **Collab: Give Feedback** to open a form that you can review and submit yourself.
+
+## Develop from source
+
+Requires Node.js 22+, Python 3.10+, and VS Code 1.138+.
 
 ```sh
 npm ci
@@ -15,6 +21,8 @@ code --extensionDevelopmentPath="/absolute/path/to/this/repo"
 ```
 
 Open this repo as one workspace folder in the new window. Set **Collab: Python Path** if needed. Use the Command Palette for these commands.
+
+Run `npm run package` to build the VSIX using Microsoft's pinned `@vscode/vsce` packaging tool (requires npm network access the first time). CI builds and uploads the same installer after the tests pass. This does not publish to the Marketplace.
 
 ## Watch, copy, and compare with a friend
 
@@ -99,3 +107,4 @@ Runtime CommonJS modules and the Python engine stay in `src/` and are included i
 GitHub Actions runs the Node, Python, and editor tests on pushes and pull requests. Dependabot checks npm dependencies and workflow actions weekly, grouping routine minor and patch updates. Review and test major upgrades separately.
 
 Use `npm ci` to install the committed lockfile. For dependency changes, update `package.json` and `package-lock.json` together and run all three test commands above.
+

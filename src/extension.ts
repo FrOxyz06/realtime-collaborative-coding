@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
+import { registerOnboarding, Action } from './onboarding';
 const { hash, validate, targetPath, checkBase, canAccept } = require('../src/proposal.cjs');
 const { runBenchmark, report } = require('../src/benchmark.cjs');
 const { hostSession, sessionRequest, snapshotRequest } = require('../src/session.cjs');
@@ -8,7 +9,7 @@ const { watchSnapshots } = require('../src/watch.cjs');
 const { verifyComparison, comparisonReport } = require('../src/comparison.cjs');
 
 type Proposal = { schemaVersion: number; target: string; baseHash: string; proposedText: string };
-type Review = { proposal: Proposal; root: string; target: string; result?: any; remoteId?: string };
+type Review = { proposal: Proposal; root: string; target: string; result?: any; remoteId?: string; configFile?: string };
 
 export function activate(context: vscode.ExtensionContext) {
     let pending: Review | undefined;
@@ -23,8 +24,41 @@ export function activate(context: vscode.ExtensionContext) {
     let stopWatching: (() => void) | undefined;
     let lastComparison: any;
     let joined: { invite: string; session: any } | undefined;
+    registerOnboarding(context, () => {
+        const items: Action[] = [];
+        const add = (name: string, label: string, description: string) => items.push({ command: 'collab.' + name, label, description });
+        add('tryDemo', 'Try the starter demo', 'Review and benchmark a sample change on your own');
+        add('checkSetup', 'Check Python setup', 'Verify the interpreter before running comparisons');
+        if (host && Date.now() < host.expiresAt) {
+            add('copyInvite', 'Copy session invite', 'Private invite; expires after 15 minutes');
+            add(liveSharing ? 'pauseLiveSharing' : 'startLiveSharing', liveSharing ? 'Pause live sharing' : 'Start live sharing', 'Host: ' + path.basename(hostTarget));
+            add('reviewSessionProposal', 'Review incoming proposals', 'Inspect changes before accepting');
+        } else add('hostSession', 'Host the current Python file', 'Same computer or an existing SSH tunnel');
+        if (joined) {
+            add('watchSharedFile', 'Watch your friend', 'Read-only live snapshots');
+            add('copySharedFile', 'Take a fresh independent copy', 'Existing edits stay untouched');
+            add('compareWithFriend', 'Compare your solution with your friend', 'Focus your editable Python file first');
+            add('sendSessionProposal', 'Send your changes for review', 'The owner decides whether to apply them');
+        } else add('joinSession', 'Join with an invite', 'A separate editable copy opens');
+        if (pending) {
+            add('benchmarkProposal', 'Check the reviewed proposal', 'Run the reviewed code against test cases');
+            add('acceptProposal', 'Accept the reviewed proposal', 'Requires passing behavior checks');
+            add('rejectProposal', 'Dismiss the reviewed proposal', 'Keep the original unchanged');
+        }
+        if (lastComparison) add('exportComparison', 'Export last comparison', 'Save the measurements as JSON');
+        if (host || joined) {
+            add('sessionStatus', 'Show session status', 'Expiry and proposal outcomes');
+            add('endSession', 'End session', 'Stop watching and revoke hosted access');
+        }
+        add('openGuide', 'Read the beta guide', 'Installation, two-window trial, and troubleshooting');
+        add('sendFeedback', 'Give feedback', 'Opens a GitHub form; you review and submit it');
+        return items;
+    });
     context.subscriptions.push({ dispose: () => { clearTimeout(publishTimer); stopWatching?.(); host?.close(); } });
     const previews = new Map<string, string>();
+    context.subscriptions.push(vscode.workspace.onDidCloseTextDocument(document => {
+        if (document.uri.scheme === 'collab-preview') previews.delete(document.uri.toString());
+    }));
     const previewChanged = new vscode.EventEmitter<vscode.Uri>();
     context.subscriptions.push(previewChanged);
     const output = vscode.window.createOutputChannel('Collab Benchmark');
@@ -94,6 +128,32 @@ export function activate(context: vscode.ExtensionContext) {
             'Original vs Proposed (read-only)');
         vscode.window.showInformationMessage('Review the diff, then run Collab: Benchmark Proposal.');
     }
+
+    register('tryDemo', async () => {
+        if (!vscode.workspace.isTrusted) throw new Error('The demo requires a trusted workspace');
+        if (pending) throw new Error('Accept or dismiss the current proposal before starting the demo');
+        const root = await fs.realpath(workspace());
+        const answer = await vscode.window.showInformationMessage(
+            'Create a new sample folder in this workspace? Your existing files will not be changed.', { modal: true }, 'Create demo');
+        if (answer !== 'Create demo') return;
+        const folder = await fs.mkdtemp(path.join(root, 'collab-demo-'));
+        for (const name of ['deduplicate.py', 'deduplicate-fast.py', 'deduplicate-benchmark.json']) {
+            await fs.copyFile(path.join(context.extensionPath, 'examples', name), path.join(folder, name));
+        }
+        const target = await fs.realpath(path.join(folder, 'deduplicate.py'));
+        const original = await fs.readFile(target, 'utf8');
+        const proposedText = await fs.readFile(path.join(folder, 'deduplicate-fast.py'), 'utf8');
+        await showReview({ root, target, configFile: path.join(folder, 'deduplicate-benchmark.json'),
+            proposal: { schemaVersion: 1, target: path.relative(root, target).split(path.sep).join('/'), baseHash: hash(original), proposedText } });
+        vscode.window.showInformationMessage('Demo ready. Open Collab Review in the status bar and choose Check the reviewed proposal. The sample test cases are already selected.');
+    });
+
+    register('copyInvite', async () => {
+        if (!host) throw new Error('Host a session first');
+        host.snapshot(); // Validate expiry before copying the secret.
+        await vscode.env.clipboard.writeText(host.invite);
+        vscode.window.showInformationMessage('Invite copied. Share it privately. Another computer needs an SSH tunnel.');
+    });
 
     register('hostSession', async () => {
         if (!vscode.workspace.isTrusted) throw new Error('Sharing requires a trusted workspace');
@@ -171,7 +231,7 @@ export function activate(context: vscode.ExtensionContext) {
 
     register('watchSharedFile', async () => {
         if (!joined) throw new Error('Join a session first');
-        stopWatching?.();
+        stopWatching?.(); stopWatching = undefined;
         const connection = joined;
         const snapshot = await sharedSnapshot(connection);
         const uri = vscode.Uri.parse(`collab-preview:/${++sequence}/friend-${path.basename(snapshot.target)}`);
@@ -180,6 +240,7 @@ export function activate(context: vscode.ExtensionContext) {
         const doc = await vscode.workspace.openTextDocument(uri);
         await vscode.languages.setTextDocumentLanguage(doc, 'python');
         await vscode.window.showTextDocument(doc, { preview: false });
+        let closeListener: vscode.Disposable | undefined;
         const stopPoll = watchSnapshots(connection.invite, (next: any) => {
             if (joined !== connection) return;
             if (next.target !== snapshot.target) throw new Error('Shared file changed unexpectedly');
@@ -189,18 +250,24 @@ export function activate(context: vscode.ExtensionContext) {
             }
         }, (error: Error) => {
             if (joined !== connection) return;
+            closeListener?.dispose(); stopWatching = undefined;
             previews.set(uri.toString(), '# WATCH STOPPED — last received snapshot below\n' + previews.get(uri.toString()));
             previewChanged.fire(uri);
             vscode.window.showErrorMessage('Shared-file watch stopped: ' + error.message + '. Rejoin or run Watch Shared File again.');
         });
         stopWatching = () => {
             stopPoll();
+            closeListener?.dispose();
             const text = previews.get(uri.toString()) || '';
             if (!text.startsWith('# WATCH STOPPED')) {
                 previews.set(uri.toString(), '# WATCH STOPPED — last received snapshot below\n' + text);
                 previewChanged.fire(uri);
             }
         };
+        closeListener = vscode.workspace.onDidCloseTextDocument(closed => {
+            if (closed.uri.toString() !== uri.toString()) return;
+            stopPoll(); closeListener?.dispose(); stopWatching = undefined;
+        });
     });
 
     register('compareWithFriend', async () => {
@@ -256,7 +323,9 @@ export function activate(context: vscode.ExtensionContext) {
     register('sendSessionProposal', async () => {
         if (!joined) throw new Error('Join a session first');
         const doc = vscode.window.activeTextEditor?.document;
-        if (!doc) throw new Error('Open the edited Python copy first');
+        if (!doc || !['file', 'untitled'].includes(doc.uri.scheme) || doc.languageId !== 'python') {
+            throw new Error('Focus your own editable Python solution first');
+        }
         const answer = await vscode.window.showInformationMessage(
             `Send the active editor contents as a proposal for ${joined.session.target}?`, { modal: true }, 'Send proposal');
         if (answer !== 'Send proposal') return;
@@ -330,8 +399,9 @@ export function activate(context: vscode.ExtensionContext) {
         if (!vscode.workspace.isTrusted) throw new Error('Benchmarking requires a trusted workspace');
         const review = pending;
         review.result = undefined;
-        const configFile = await pick('Choose benchmark.json', 'json');
+        const configFile = review.configFile ? vscode.Uri.file(review.configFile) : await pick('Choose benchmark.json', 'json');
         if (!configFile) return;
+        if ((await fs.stat(configFile.fsPath)).size > 1000000) throw new Error('Benchmark configuration is too large');
         const config = JSON.parse(await fs.readFile(configFile.fsPath, 'utf8'));
         const doc = await current(review);
         const answer = await vscode.window.showWarningMessage(
@@ -381,3 +451,4 @@ export function activate(context: vscode.ExtensionContext) {
         vscode.window.showInformationMessage('Proposal dismissed. No source file was changed.');
     });
 }
+

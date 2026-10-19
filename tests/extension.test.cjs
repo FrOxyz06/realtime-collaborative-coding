@@ -24,13 +24,15 @@ test('review -> benchmark -> accept, and stale/dirty/rejected proposals stay unc
     const doc = { uri: uri(filename), fileName: filename, getText: () => text, get isDirty() { return dirty; }, positionAt: n => n };
     const editor = { document: doc, edit: async callback => { callback({ replace: (range, replacement) => { text = replacement; dirty = true; edits++; } }); return true; } };
     const vscode = {
+        StatusBarAlignment: { Left: 1 },
         EventEmitter: class { event = () => ({ dispose() {} }); fire() {} dispose() {} },
         Uri: { file: uri, parse: value => ({ toString: () => value }) }, Range: class {},
         workspace: { isTrusted: true, workspaceFolders: [{ uri: uri(root) }],
             onDidChangeTextDocument: () => ({ dispose() {} }),
+            onDidCloseTextDocument: () => ({ dispose() {} }),
             registerTextDocumentContentProvider: (scheme, value) => { provider = value; return { dispose() {} }; },
             openTextDocument: async () => doc, getConfiguration: () => ({ get: () => 'python' }) },
-        window: { activeTextEditor: editor, createOutputChannel: () => ({ clear() {}, appendLine() {}, show() {}, dispose() {} }),
+        window: { createStatusBarItem: () => ({ show() {}, dispose() {} }), activeTextEditor: editor, createOutputChannel: () => ({ clear() {}, appendLine() {}, show() {}, dispose() {} }),
             showErrorMessage: value => errors.push(value), showInformationMessage: async (...args) => args.length > 1 ? 'Apply proposal' : undefined,
             showWarningMessage: async () => 'Run trusted code', showOpenDialog: async () => [uri(choices.shift())],
             showSaveDialog: async () => uri(path.join(root, 'export.collab-proposal.json')), showTextDocument: async () => editor },
@@ -79,3 +81,4 @@ test('review -> benchmark -> accept, and stale/dirty/rejected proposals stay unc
         await fs.rm(root, { recursive: true, force: true });
     }
 });
+

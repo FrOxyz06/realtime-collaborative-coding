@@ -1,5 +1,9 @@
 name: Tests
-on: [push, pull_request, workflow_dispatch]
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
 permissions:
   contents: read
 concurrency:
@@ -24,3 +28,13 @@ jobs:
       - run: npm test
       - run: npm run test:python
       - run: npm run test:editor
+      - run: npm run package
+      - run: npm run test:package
+      - name: Upload installable beta
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: collab-review-beta
+          path: collab-review-*.vsix
+          if-no-files-found: error
+          retention-days: 30
+
