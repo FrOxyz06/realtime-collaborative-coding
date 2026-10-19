@@ -8,11 +8,11 @@ v0.4.0 beta adds an installable VSIX, a starter demo, a status-bar action menu, 
 
 Start with [the installation and trial guide](docs/TRY_IT.md). Download the VSIX from the `collab-review-beta` artifact on a successful [Tests workflow run](https://github.com/FrOxyz06/realtime-collaborative-coding/actions/workflows/test.yml) for the beta branch, install it in VS Code, and run **Collab: Open Menu** → **Try the starter demo**. You can try reviewing and comparing code without a partner or building from source. GitHub sign-in is required for artifact downloads.
 
-Installed users need VS Code 1.100+ and Python 3.10+ for comparisons. Two windows on one computer work directly. **Two different computers still require an existing SSH tunnel**; this beta has no hosted relay. Use **Collab: Give Feedback** to open a form that you can review and submit yourself.
+Installed users need VS Code 1.138+ and Python 3.10+ for comparisons. Two windows on one computer work directly. **Two different computers still require an existing SSH tunnel**; this beta has no hosted relay. Use **Collab: Give Feedback** to open a form that you can review and submit yourself.
 
 ## Develop from source
 
-Requires Node.js 22+, Python 3.10+, and VS Code 1.100+.
+Requires Node.js 22+, Python 3.10+, and VS Code 1.138+.
 
 ```sh
 npm ci

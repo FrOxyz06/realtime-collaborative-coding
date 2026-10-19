@@ -5,7 +5,7 @@ Collab Review lets you review a Python change before applying it, or watch a fri
 ## Install without building
 
 1. Download the `collab-review-beta` artifact from a successful [Tests workflow run](https://github.com/FrOxyz06/realtime-collaborative-coding/actions/workflows/test.yml) for the beta branch. GitHub requires signing in to download workflow artifacts. Extract the ZIP to find `collab-review-0.4.0.vsix`.
-2. In VS Code 1.100 or newer, open Extensions, select the **…** menu, then **Install from VSIX…** and choose that file. Reload VS Code if prompted.
+2. In VS Code 1.138 or newer, open Extensions, select the **…** menu, then **Install from VSIX…** and choose that file. Reload VS Code if prompted.
 3. Install Python 3.10+ if you want to run comparisons. Node.js is only needed to develop/build the extension, not to use the installed package.
 4. Open one local folder that you trust. Click **Collab Review** in the bottom status bar, or run **Collab: Open Menu** from the Command Palette.
 5. Choose **Check Python setup**. If Python cannot start, set **Collab: Python Path** to the full executable path. On macOS/Linux this may be `python3`; on Windows use the executable path printed by `py -0p`, not `py -3`.

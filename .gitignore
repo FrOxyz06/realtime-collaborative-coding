@@ -6,7 +6,4 @@ __pycache__/
 .env
 *.collab-proposal.json
 .vscode-test/
-
-
-*.vsix
 collab-demo-*/

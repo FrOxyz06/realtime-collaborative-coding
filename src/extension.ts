@@ -56,6 +56,9 @@ export function activate(context: vscode.ExtensionContext) {
     });
     context.subscriptions.push({ dispose: () => { clearTimeout(publishTimer); stopWatching?.(); host?.close(); } });
     const previews = new Map<string, string>();
+    context.subscriptions.push(vscode.workspace.onDidCloseTextDocument(document => {
+        if (document.uri.scheme === 'collab-preview') previews.delete(document.uri.toString());
+    }));
     const previewChanged = new vscode.EventEmitter<vscode.Uri>();
     context.subscriptions.push(previewChanged);
     const output = vscode.window.createOutputChannel('Collab Benchmark');
@@ -137,7 +140,7 @@ export function activate(context: vscode.ExtensionContext) {
         for (const name of ['deduplicate.py', 'deduplicate-fast.py', 'deduplicate-benchmark.json']) {
             await fs.copyFile(path.join(context.extensionPath, 'examples', name), path.join(folder, name));
         }
-        const target = path.join(folder, 'deduplicate.py');
+        const target = await fs.realpath(path.join(folder, 'deduplicate.py'));
         const original = await fs.readFile(target, 'utf8');
         const proposedText = await fs.readFile(path.join(folder, 'deduplicate-fast.py'), 'utf8');
         await showReview({ root, target, configFile: path.join(folder, 'deduplicate-benchmark.json'),
@@ -228,7 +231,7 @@ export function activate(context: vscode.ExtensionContext) {
 
     register('watchSharedFile', async () => {
         if (!joined) throw new Error('Join a session first');
-        stopWatching?.();
+        stopWatching?.(); stopWatching = undefined;
         const connection = joined;
         const snapshot = await sharedSnapshot(connection);
         const uri = vscode.Uri.parse(`collab-preview:/${++sequence}/friend-${path.basename(snapshot.target)}`);
@@ -237,6 +240,7 @@ export function activate(context: vscode.ExtensionContext) {
         const doc = await vscode.workspace.openTextDocument(uri);
         await vscode.languages.setTextDocumentLanguage(doc, 'python');
         await vscode.window.showTextDocument(doc, { preview: false });
+        let closeListener: vscode.Disposable | undefined;
         const stopPoll = watchSnapshots(connection.invite, (next: any) => {
             if (joined !== connection) return;
             if (next.target !== snapshot.target) throw new Error('Shared file changed unexpectedly');
@@ -246,18 +250,24 @@ export function activate(context: vscode.ExtensionContext) {
             }
         }, (error: Error) => {
             if (joined !== connection) return;
+            closeListener?.dispose(); stopWatching = undefined;
             previews.set(uri.toString(), '# WATCH STOPPED — last received snapshot below\n' + previews.get(uri.toString()));
             previewChanged.fire(uri);
             vscode.window.showErrorMessage('Shared-file watch stopped: ' + error.message + '. Rejoin or run Watch Shared File again.');
         });
         stopWatching = () => {
             stopPoll();
+            closeListener?.dispose();
             const text = previews.get(uri.toString()) || '';
             if (!text.startsWith('# WATCH STOPPED')) {
                 previews.set(uri.toString(), '# WATCH STOPPED — last received snapshot below\n' + text);
                 previewChanged.fire(uri);
             }
         };
+        closeListener = vscode.workspace.onDidCloseTextDocument(closed => {
+            if (closed.uri.toString() !== uri.toString()) return;
+            stopPoll(); closeListener?.dispose(); stopWatching = undefined;
+        });
     });
 
     register('compareWithFriend', async () => {

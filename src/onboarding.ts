@@ -18,8 +18,11 @@ export function registerOnboarding(context: vscode.ExtensionContext, actions: ()
     context.subscriptions.push(status);
     context.subscriptions.push(vscode.commands.registerCommand('collab.sendFeedback', async () => {
         // No source, paths, invite tokens, or machine data are attached.
-        await vscode.env.openExternal(vscode.Uri.parse(
-            'https://github.com/FrOxyz06/realtime-collaborative-coding/issues/new?template=beta-feedback.yml'));
+        const url = new URL('https://github.com/FrOxyz06/realtime-collaborative-coding/issues/new');
+        // Plain prefilled form also works before the issue template reaches main.
+        url.searchParams.set('title', '[Beta feedback] ');
+        url.searchParams.set('body', 'Extension / VS Code / Python versions and OS:\n\nWhat I tried:\n\nWhat happened and what I expected:\n\nWhat would make this useful:\n\nPlease remove invite tokens, private code, and personal paths before submitting.');
+        await vscode.env.openExternal(vscode.Uri.parse(url.toString()));
     }));
     context.subscriptions.push(vscode.commands.registerCommand('collab.openGuide', async () => {
         await vscode.commands.executeCommand('markdown.showPreview', vscode.Uri.joinPath(context.extensionUri, 'docs', 'TRY_IT.md'));

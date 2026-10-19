@@ -7,8 +7,6 @@ tsconfig.json
 **/__pycache__/**
 **/*.pyc
 .github/**
-
-
 *.vsix
 collab-demo-*/**
 .gitignore

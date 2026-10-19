@@ -29,6 +29,7 @@ test('review -> benchmark -> accept, and stale/dirty/rejected proposals stay unc
         Uri: { file: uri, parse: value => ({ toString: () => value }) }, Range: class {},
         workspace: { isTrusted: true, workspaceFolders: [{ uri: uri(root) }],
             onDidChangeTextDocument: () => ({ dispose() {} }),
+            onDidCloseTextDocument: () => ({ dispose() {} }),
             registerTextDocumentContentProvider: (scheme, value) => { provider = value; return { dispose() {} }; },
             openTextDocument: async () => doc, getConfiguration: () => ({ get: () => 'python' }) },
         window: { createStatusBarItem: () => ({ show() {}, dispose() {} }), activeTextEditor: editor, createOutputChannel: () => ({ clear() {}, appendLine() {}, show() {}, dispose() {} }),

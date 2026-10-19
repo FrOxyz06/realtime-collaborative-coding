@@ -2,7 +2,7 @@ const fs = require('node:fs/promises');
 const path = require('node:path');
 const os = require('node:os');
 const { spawnSync } = require('node:child_process');
-const JSZip = require('jszip'); // Already locked via @vscode/test-electron.
+const JSZip = require('jszip');
 
 (async () => {
     const root = path.resolve(__dirname, '..');

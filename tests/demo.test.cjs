@@ -28,6 +28,7 @@ test('starter demo runs real Python, applies only to its sample buffer, and menu
         env: { openExternal: async value => { opened.push(value.toString()); return true; } },
         workspace: { isTrusted: true, workspaceFolders: [{ uri: uri(root) }],
             onDidChangeTextDocument: () => ({ dispose() {} }),
+            onDidCloseTextDocument: () => ({ dispose() {} }),
             registerTextDocumentContentProvider: () => ({ dispose() {} }),
             getConfiguration: () => ({ get: () => 'python' }), openTextDocument: openDocument },
         window: { createStatusBarItem: () => ({ show() {}, dispose() {} }),
@@ -57,14 +58,19 @@ test('starter demo runs real Python, applies only to its sample buffer, and menu
         await run('benchmarkProposal');
         assert.match(output.join('\n'), /All supplied cases matched/);
         await run('acceptProposal');
-        const target = path.join(root, sample, 'deduplicate.py');
+        const target = await fs.realpath(path.join(root, sample, 'deduplicate.py'));
         const candidate = await fs.readFile(path.join(root, sample, 'deduplicate-fast.py'), 'utf8');
         assert.equal(documents.get(target).getText(), candidate);
         assert.notEqual(await fs.readFile(target, 'utf8'), candidate);
         assert.equal(await fs.readFile(path.join(root, 'keep.py'), 'utf8'), '# my existing work\n');
         menuChoice = 'collab.sendFeedback';
         await run('openMenu');
-        assert.deepEqual(opened, ['https://github.com/FrOxyz06/realtime-collaborative-coding/issues/new?template=beta-feedback.yml']);
+        assert.equal(opened.length, 1);
+        const feedback = new URL(opened[0]);
+        assert.equal(feedback.origin + feedback.pathname, 'https://github.com/FrOxyz06/realtime-collaborative-coding/issues/new');
+        assert.deepEqual([...feedback.searchParams.keys()], ['title', 'body']);
+        assert.equal(opened[0].includes(encodeURIComponent(root)), false);
+        assert.match(feedback.searchParams.get('body'), /What I tried/);
         vscode.workspace.isTrusted = false;
         await run('tryDemo');
         assert.match(errors.pop(), /trusted workspace/);
