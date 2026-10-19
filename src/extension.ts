@@ -132,7 +132,7 @@ export function activate(context: vscode.ExtensionContext) {
     register('tryDemo', async () => {
         if (!vscode.workspace.isTrusted) throw new Error('The demo requires a trusted workspace');
         if (pending) throw new Error('Accept or dismiss the current proposal before starting the demo');
-        const root = workspace();
+        const root = await fs.realpath(workspace());
         const answer = await vscode.window.showInformationMessage(
             'Create a new sample folder in this workspace? Your existing files will not be changed.', { modal: true }, 'Create demo');
         if (answer !== 'Create demo') return;

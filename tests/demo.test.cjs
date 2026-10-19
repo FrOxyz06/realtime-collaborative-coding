@@ -51,6 +51,7 @@ test('starter demo runs real Python, applies only to its sample buffer, and menu
         require('../out/extension.js').activate({ subscriptions, extensionPath, extensionUri: uri(extensionPath) });
         const run = name => commands.get('collab.' + name)();
         await run('openMenu');
+        assert.deepEqual(errors, [], 'Starter demo failed before opening the review');
         const sample = (await fs.readdir(root)).find(name => name.startsWith('collab-demo-'));
         assert.ok(sample);
         await run('tryDemo');
