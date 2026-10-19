@@ -39,6 +39,7 @@ async function workflow() {
         const configKey = manifest.name === 'realtime-collaborative-coding' ? 'collab' : 'performanceAnalyzer';
         await vscode.workspace.getConfiguration(configKey).update('pythonPath', process.env.TEST_PYTHON, vscode.ConfigurationTarget.Global);
         if (configKey === 'collab') {
+            console.log('EDITOR: offline review, benchmark, apply, and Undo');
             const { hash } = require('../src/proposal.cjs');
             const proposalFile = path.join(root, 'change.collab-proposal.json');
             await fs.writeFile(proposalFile, JSON.stringify({ schemaVersion: 1, target: 'example.py', baseHash: hash(original), proposedText: candidate }));
@@ -62,6 +63,7 @@ async function workflow() {
             vscode.env.clipboard.writeText = async value => { invite = value; };
             vscode.window.showQuickPick = async items => items[0];
             try {
+                console.log('EDITOR: hosted session and live sharing');
                 await vscode.commands.executeCommand('collab.hostSession');
                 invite = await vscode.env.clipboard.readText();
                 assert.ok(invite, 'Host did not produce an invite: ' + errors.join('; '));
@@ -101,6 +103,7 @@ async function workflow() {
             // instance exercises the guest commands against actual documents.
             const { hostSession } = require('../src/session.cjs');
             const friend = await hostSession('example.py', original);
+            console.log('EDITOR: guest watch, copy, comparison, and export');
             try {
                 friend.setLive(true);
                 vscode.window.showInputBox = async () => friend.invite;
@@ -136,6 +139,7 @@ async function workflow() {
             // The installed-user entry point creates isolated samples and selects
             // benchmark cases without asking a tester to find repository files.
             const filesBeforeDemo = await fs.readdir(root);
+            console.log('EDITOR: isolated starter demo');
             await vscode.commands.executeCommand('collab.tryDemo');
             const sampleFolder = (await fs.readdir(root)).find(name => name.startsWith('collab-demo-') && !filesBeforeDemo.includes(name));
             assert.ok(sampleFolder, 'Starter demo did not create its own sample folder');

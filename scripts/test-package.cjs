@@ -23,9 +23,15 @@ const JSZip = require('jszip');
             await fs.mkdir(path.dirname(target), { recursive: true });
             await fs.writeFile(target, await entry.async('nodebuffer'));
         }
+        // VS Code scopes its API by extension directory. Keep the test harness
+        // in the temporary extraction so dialog stubs affect this extension.
+        // No runtime files or dependencies are copied from the source checkout.
+        const harness = path.join(destination, 'extension', 'tests', 'host-test.cjs');
+        await fs.mkdir(path.dirname(harness), { recursive: true });
+        await fs.copyFile(path.join(root, 'tests', 'host-test.cjs'), harness);
         const result = spawnSync(process.execPath, [path.join(__dirname, 'run-editor-tests.cjs')], {
             stdio: 'inherit', windowsHide: true,
-            env: { ...process.env, TEST_EXTENSION_PATH: path.join(destination, 'extension') }
+            env: { ...process.env, TEST_EXTENSION_PATH: path.join(destination, 'extension'), TEST_EXTENSION_TESTS_PATH: harness }
         });
         if (result.error) throw result.error;
         if (result.status !== 0) throw new Error('Packaged editor tests failed');
