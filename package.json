@@ -130,7 +130,7 @@
     "test:editor": "npm run compile && node scripts/run-editor-tests.cjs",
     "demo": "node scripts/benchmark-demo.cjs",
     "vscode:prepublish": "npm run compile",
-    "package": "npx --yes @vscode/vsce@3.6.2 package --no-dependencies --allow-missing-license --out collab-review-0.4.0.vsix",
+    "package": "npx --yes @vscode/vsce@3.6.2 package --no-dependencies --skip-license --out collab-review-0.4.0.vsix",
     "test:package": "node scripts/test-package.cjs"
   },
   "capabilities": {
