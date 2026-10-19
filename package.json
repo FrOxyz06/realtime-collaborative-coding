@@ -1,6 +1,6 @@
 {
   "name": "realtime-collaborative-coding",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "displayName": "Collab Review",
   "description": "Watch shared Python edits, copy independent solutions, and compare correctness and performance in VS Code.",
   "publisher": "FrOxyz06",
@@ -17,6 +17,30 @@
   },
   "contributes": {
     "commands": [
+      {
+        "command": "collab.openMenu",
+        "title": "Collab: Open Menu"
+      },
+      {
+        "command": "collab.tryDemo",
+        "title": "Collab: Try Starter Demo"
+      },
+      {
+        "command": "collab.copyInvite",
+        "title": "Collab: Copy Session Invite"
+      },
+      {
+        "command": "collab.checkSetup",
+        "title": "Collab: Check Python Setup"
+      },
+      {
+        "command": "collab.openGuide",
+        "title": "Collab: Open Beta Guide"
+      },
+      {
+        "command": "collab.sendFeedback",
+        "title": "Collab: Give Feedback"
+      },
       {
         "command": "collab.createProposal",
         "title": "Collab: Create Proposal"
@@ -103,7 +127,10 @@
     "test": "npm run compile && node --test tests/*.test.cjs",
     "test:python": "python -m unittest discover -s tests -p test_*.py -v",
     "test:editor": "npm run compile && node scripts/run-editor-tests.cjs",
-    "demo": "node scripts/benchmark-demo.cjs"
+    "demo": "node scripts/benchmark-demo.cjs",
+    "vscode:prepublish": "npm run compile",
+    "package": "npx --yes @vscode/vsce@3.6.2 package --no-dependencies --allow-missing-license --out collab-review-0.4.0.vsix",
+    "test:package": "node scripts/test-package.cjs"
   },
   "capabilities": {
     "untrustedWorkspaces": {
@@ -115,5 +142,22 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/FrOxyz06/realtime-collaborative-coding.git"
-  }
+  },
+  "preview": true,
+  "categories": [
+    "Other"
+  ],
+  "keywords": [
+    "collaboration",
+    "python",
+    "code review",
+    "benchmark"
+  ],
+  "bugs": {
+    "url": "https://github.com/FrOxyz06/realtime-collaborative-coding/issues"
+  },
+  "homepage": "https://github.com/FrOxyz06/realtime-collaborative-coding#readme",
+  "activationEvents": [
+    "onStartupFinished"
+  ]
 }

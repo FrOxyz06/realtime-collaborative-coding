@@ -9,8 +9,9 @@ fs.writeFileSync(path.join(userData, 'User', 'settings.json'), JSON.stringify({ 
 const workspace = path.join(root, '.vscode-test', 'fixture');
 fs.mkdirSync(workspace, { recursive: true });
 for (const name of ['example.py', 'candidate.py', 'benchmark.json']) fs.copyFileSync(path.join(root, 'examples', name), path.join(workspace, name));
-runTests({ version: '1.138.0', cachePath: cache, extensionDevelopmentPath: root, extensionTestsPath: path.join(root, 'tests', 'host-test.cjs'),
+runTests({ version: '1.138.0', cachePath: cache, extensionDevelopmentPath: process.env.TEST_EXTENSION_PATH || root, extensionTestsPath: path.join(root, 'tests', 'host-test.cjs'),
     extensionTestsEnv: { TEST_PYTHON: process.env.TEST_PYTHON || 'python' },
     launchArgs: [workspace, '--user-data-dir=' + userData, '--extensions-dir=' + path.join(cache, 'extensions-' + require('../package.json').name), '--disable-gpu', '--disable-workspace-trust', '--skip-welcome', '--skip-release-notes'],
     reuseMachineInstall: false
 }).catch(error => { console.error(error); process.exitCode = 1; });
+

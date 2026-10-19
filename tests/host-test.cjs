@@ -133,6 +133,35 @@ async function workflow() {
                 await vscode.commands.executeCommand('collab.endSession');
             }
 
+            // The installed-user entry point creates isolated samples and selects
+            // benchmark cases without asking a tester to find repository files.
+            const filesBeforeDemo = await fs.readdir(root);
+            await vscode.commands.executeCommand('collab.tryDemo');
+            const sampleFolder = (await fs.readdir(root)).find(name => name.startsWith('collab-demo-') && !filesBeforeDemo.includes(name));
+            assert.ok(sampleFolder, 'Starter demo did not create its own sample folder');
+            const sampleFile = path.join(root, sampleFolder, 'deduplicate.py');
+            const sampleOriginal = await fs.readFile(sampleFile, 'utf8');
+            const sampleCandidate = await fs.readFile(path.join(root, sampleFolder, 'deduplicate-fast.py'), 'utf8');
+            await vscode.commands.executeCommand('collab.benchmarkProposal');
+            await vscode.commands.executeCommand('collab.acceptProposal');
+            const sampleDoc = await vscode.workspace.openTextDocument(sampleFile);
+            assert.equal(sampleDoc.getText(), sampleCandidate);
+            assert.equal(await fs.readFile(sampleFile, 'utf8'), sampleOriginal, 'Demo saved without asking');
+            assert.equal(await fs.readFile(originalFile, 'utf8'), original, 'Demo changed an existing file');
+
+            const friendForGuard = await hostSession('example.py', original);
+            try {
+                vscode.window.showInputBox = async () => friendForGuard.invite;
+                await vscode.commands.executeCommand('collab.joinSession');
+                await vscode.commands.executeCommand('collab.watchSharedFile');
+                await vscode.commands.executeCommand('collab.sendSessionProposal');
+                assert.match(errors.pop(), /editable Python solution/);
+                assert.equal(friendForGuard.list().length, 0, 'Read-only watch was submitted as a proposal');
+            } finally {
+                friendForGuard.close();
+                await vscode.commands.executeCommand('collab.endSession');
+            }
+
         } else {
             dialogs.push(path.join(root, 'candidate.py'), path.join(root, 'benchmark.json'));
             await vscode.commands.executeCommand('performanceAnalyzer.analyzeFile');
@@ -162,3 +191,4 @@ async function until(predicate) {
         await new Promise(resolve => setTimeout(resolve, 50));
     }
 }
+

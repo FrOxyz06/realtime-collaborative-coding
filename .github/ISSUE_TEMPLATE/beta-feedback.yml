@@ -1,0 +1,38 @@
+name: Beta feedback
+description: Tell us what worked, what was confusing, or what broke.
+title: "[Beta feedback]: "
+body:
+  - type: markdown
+    attributes:
+      value: "Thanks for trying Collab Review. Do not include invite tokens, private source code, or personal file paths."
+  - type: input
+    id: environment
+    attributes:
+      label: Versions and platform
+      description: Extension version, VS Code version, operating system, and Python version if relevant.
+    validations:
+      required: true
+  - type: dropdown
+    id: workflow
+    attributes:
+      label: What did you try?
+      options:
+        - Installation or setup
+        - Solo starter demo
+        - Two windows on one computer
+        - Two computers over SSH
+        - Offline proposal review
+    validations:
+      required: true
+  - type: textarea
+    id: experience
+    attributes:
+      label: What happened, and what did you expect?
+      description: Include the confusing step or reproducible steps for a bug. Tell us what worked too.
+    validations:
+      required: true
+  - type: textarea
+    id: improvement
+    attributes:
+      label: What would make this useful to you?
+      description: What would you change before using it with a friend again?

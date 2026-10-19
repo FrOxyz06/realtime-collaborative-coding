@@ -7,3 +7,10 @@ tsconfig.json
 **/__pycache__/**
 **/*.pyc
 .github/**
+
+
+*.vsix
+collab-demo-*/**
+.gitignore
+package-lock.json
+docs/comparison-demo.json
